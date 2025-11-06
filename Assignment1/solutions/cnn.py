@@ -192,7 +192,37 @@ def _conv2d_forward(x, W, b, stride=1, pad=0):
     C_out, C_in, k, _ = W.shape
 
     # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-    raise NotImplementedError("Provide your solution here")
+    # Add padding
+    xp, _ = _pad2d(x, pad)
+    
+    # convert input to suitable shape
+    cols, idx, H_out, W_out = _im2col_from_padded(xp, k, stride) # cols: (C_in*k*k, H_out*W_out)
+
+    # reshape kernels to 2D, i.e. (C_out, C_in*k*k)
+    W_col = W.reshape(C_out, -1)
+
+    # Apply matrix multiplication. Resulting: (C_out, H_out*W_out)
+    out_cols = W_col @ cols 
+
+    # Add bias (broadcasted, i.e. shape: (C_out,1)) 
+    out_cols = out_cols + b[:, None]
+
+    # Reshape to expected (C_out, H_out, W_out)
+    out = out_cols.reshape(C_out, H_out, W_out)
+
+
+    # Store intermediate values for backwards usage
+    cache = {
+        'x_shape': x.shape,
+        'xp_shape': xp.shape,
+        'W': W,
+        'b': b,
+        'stride': stride,
+        'pad': pad,
+        'cols': cols,          # im2col result (useful for dW, db)
+        'idx': idx,            # indices for col2im
+    }
+
     # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
     return out, cache
@@ -251,7 +281,30 @@ def _conv2d_backward(dout, cache):
     idx = cache["idx"]
 
     # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-    raise NotImplementedError("Provide your solution here")
+    C_out, H_out, W_out = dout.shape
+
+    # db: sum over spatial locations (height and width dimensions f.e. output channel)
+    db = dout.sum(axis=(1, 2))  # shape (C_out,)
+
+    # dW:
+    # reshape dout for matrix multiplication (to (C_out, H_out*W_out))
+    dout_cols = dout.reshape(C_out, -1)
+
+    # dW: the influence of each kernel point (C_out, C_in*k*k)
+    dW_col = dout_cols @ cols.T
+
+    dW = dW_col.reshape(W.shape)
+
+    # dx: the influence of each input point
+    W_cols = W.reshape(C_out, -1) # to (C_out, C_in*k*k)
+    dx_cols = W_cols.T @ dout_cols # (C_in*k*k, H_out*W_out)
+
+    # assign calculated dx to corresponding X position
+    xp_gradient = _col2im_into_padded(dx_cols, xp_shape, idx) # (C_in, H_out+2pad, W_out+2pad)
+
+    # remove the pads to match original X shape
+    dx = xp_gradient[:, pad:pad + H_out, pad:pad + W_out] # (C_in, H_out, W_out)
+
     # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
     return dx.astype(np.float64), dW.astype(np.float64), db.astype(np.float64)
@@ -300,7 +353,40 @@ def _maxpool2d_forward(x, kernel=2, stride=2):
     C, H, W = x.shape
 
     # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-    raise NotImplementedError("Provide your solution here")
+    # get patches (no need to pad!)
+    cols, idx, H_out, W_out = _im2col_from_padded(x, kernel, stride)
+
+    # reshape cols (C*kernel*kernel, H_out*W_out) to isolate patches per channel (C, kernel*kernel, H_out*W_out):
+    cols_reshaped = cols.reshape(C, kernel*kernel, H_out*W_out) 
+
+    # get max value and index (argmax) per patch
+    max_values_flat = cols_reshaped.max(axis=1) # shape: (C, H_out*W_out)
+    argmax_idx = np.argmax(cols_reshaped, axis=1)  # shape (C, H_out*W_out)
+    out = max_values_flat.reshape(C, H_out, W_out)
+
+    # generate a mask to cache position of max values
+    mask = np.zeros_like(cols, dtype=np.float64)
+
+    # get global row position (on mask matrix) of max values:
+    rows = (np.arange(C)[:, None] * (kernel*kernel)) + argmax_idx  # shape (C, H_out*W_out)
+
+    cols_idx = np.tile(np.arange(H_out*W_out), (C, 1)) 
+
+    # set flag 1 in mask on max values' positions
+    mask[rows.ravel(), cols_idx.ravel()] = 1.0
+
+    # Store intermediate values for backwards usage
+    cache = {
+        'x_shape': x.shape,
+        'kernel': kernel,
+        'stride': stride,
+        'idx': idx,            # indices for col2im
+        'max_idx': mask,
+        'H_out': H_out,
+        'W_out': W_out,
+
+    }
+
     # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
     return out.astype(np.float64), cache
@@ -350,7 +436,20 @@ def _maxpool2d_backward(dout, cache):
     W_out = cache["W_out"]
 
     # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-    raise NotImplementedError("Provide your solution here")
+
+    # reshape to handle per channel C
+    max_idx_resh = max_idx.reshape(C, kernel*kernel, H_out*W_out)
+
+    # flat dout 
+    dout_flat = dout.reshape(C, -1) # (C, H_out*W_out)
+
+    # elementwise multiplication of max indexes and dout
+    gradient_cols_flat = max_idx_resh * dout_flat[:,None,:] # shape: (C, kernel*kernel, H_out*W_out)
+    gradient_cols = gradient_cols_flat.reshape(C*kernel*kernel, H_out*W_out)
+
+    # scatter-add back into original image shape
+    dx = _col2im_into_padded(gradient_cols, (C, H, W), (i, j, c))
+
     # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
     return dx.astype(np.float64)
