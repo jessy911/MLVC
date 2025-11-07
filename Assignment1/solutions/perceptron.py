@@ -40,7 +40,9 @@ class Perceptron:
         numpy.ndarray: Class labels.
         """
         # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-        raise NotImplementedError("Provide your solution here")
+        # raise NotImplementedError("Provide your solution here")
+        z = np.dot(self.w, X)
+        return np.where(z >= 0, 1, -1)
         # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
     def fit(self, X, y):
@@ -88,7 +90,8 @@ class Perceptron:
                 prediction_for_update = self.forward(X[wrong_prediction_idx, :])
                 # update the weights of the perceptron at random
                 # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-                raise NotImplementedError("Provide your solution here")
+                # raise NotImplementedError("Provide your solution here")
+                self.w += self.lr * y[wrong_prediction_idx] * X[wrong_prediction_idx]
                 # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
             # Appending number of misclassified examples
@@ -113,5 +116,6 @@ class Perceptron:
 
     
         # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-        raise NotImplementedError("Provide your solution here")
+        # raise NotImplementedError("Provide your solution here")
+        return self.forward(X.T)
         # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
