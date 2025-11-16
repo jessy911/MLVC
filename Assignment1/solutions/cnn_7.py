@@ -2,7 +2,7 @@ import math
 import numpy as np
 from collections import OrderedDict
 
-from .mlp import MultiLayerPerceptron, ACT_FUNCS, act_forward, act_backward, fc_backward
+from .mlp_7 import MultiLayerPerceptron, ACT_FUNCS, act_forward, act_backward, fc_backward
 
 ########### TO-DO ###########
 # Implement the methods marked with "BEGINNING OF YOUR CODE" and "END OF YOUR CODE"

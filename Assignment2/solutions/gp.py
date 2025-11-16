@@ -78,7 +78,26 @@ class GaussianProcess:
         n = X.shape[0]
 
         # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-        raise NotImplementedError("Provide your solution here")
+        # Compute and store training data
+        self.X_train_ = X
+        self.y_train_ = y
+
+        # Build Gram matrix K(X, X)
+        K = self.kernel(X, X)
+
+        # Add noise variance to the diagonal for numerical stability
+        K += self.noise_variance * np.eye(n)
+
+        # Compute the Cholesky decomposition: K = L L^T
+        self.L_ = cholesky(K)
+
+        # Solve for alpha using triangular solves:
+        # First: solve L * z = y
+        z = solve(self.L_, y)
+
+        # Second: solve L^T * alpha = z
+        self.alpha_ = solve(self.L_.T, z)
+
         # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
         return self
@@ -116,7 +135,25 @@ class GaussianProcess:
         X = np.asarray(X, dtype=np.float64)
 
         # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-        raise NotImplementedError("Provide your solution here")
+        # Compute cross-kernel matrix K(X_train, X_test)
+        K_trans = self.kernel(self.X_train_, X)
+
+        # Posterior predictive mean: K^T * alpha
+        mean = K_trans.T @ self.alpha_
+
+        # Compute v = L^{-1} * K_trans using triangular solve
+        v = solve(self.L_, K_trans)
+
+        # Compute kernel diag k(x*, x*)
+        k_xx = self.kernel(X, X).diagonal()
+
+        # Predictive variance = k(x*, x*) - sum(v^2, axis=0)
+        var = k_xx - np.sum(v**2, axis=0)
+
+        # Standard deviation is sqrt of variance
+        # Numerical safety: clip tiny negatives due to floating point
+        std = np.sqrt(np.maximum(var, 1e-12))
+
         # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
         return mean, std
