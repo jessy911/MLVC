@@ -40,7 +40,12 @@ class LinearRegression:
         X = np.asarray(X, dtype=np.float64)
 
         # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-        raise NotImplementedError("Provide your solution here")
+        # Ensure X is 2D
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+
+        # Create a column of ones for the bias term
+        ones = np.ones((X.shape[0], 1))
         # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
         return np.hstack([ones, X])
@@ -74,7 +79,19 @@ class LinearRegression:
             Fitted model.
         """
         # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-        raise NotImplementedError("Provide your solution here")
+        # Convert to numpy array
+        X = np.asarray(X, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
+
+        # Store the number of features (without bias)
+        self.n_features_ = X.shape[1] if X.ndim > 1 else 1
+
+        # Add bias column to X
+        Xb = self._add_bias(X)
+
+        # Solve least squares: Xb @ w = y
+        # np.linalg.lstsq returns (solution, residuals, rank, singular_values)
+        self.w, _, _, _ = np.linalg.lstsq(Xb, y, rcond=None)
         # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
         return self
@@ -102,7 +119,19 @@ class LinearRegression:
         """
 
         # *****BEGINNING OF YOUR CODE (DO NOT DELETE THIS LINE)*****
-        raise NotImplementedError("Provide your solution here")
+        # Check if model has been fitted
+        if self.w is None:
+            raise ValueError("Model has not been fitted yet. Call fit() first.")
+
+        # Convert to numpy array
+        X = np.asarray(X, dtype=np.float64)
+
+        # Add bias column
+        Xb = self._add_bias(X)
+
+        # Check that feature dimensions match training
+        if Xb.shape[1] != len(self.w):
+            raise ValueError(f"Feature dimension mismatch: expected {self.n_features_} features, got {Xb.shape[1] - 1} features")
         # *****END OF YOUR CODE (DO NOT DELETE THIS LINE)*****
 
         return Xb @ self.w
